@@ -31,24 +31,16 @@ type Investigation = {
   row_limit: number | null;
 };
 
-const sampleResult: Investigation = {
-  question: 'Which product category drove the largest revenue growth last quarter?',
-  answer:
-    'Enterprise Analytics drove the largest quarter-over-quarter revenue growth. Revenue increased by $428,400 (+31.2%), contributing 46% of total company growth. The lift was concentrated in the Northeast and West regions, led by annual plan renewals.',
-  columns: ['category', 'q2_revenue', 'q3_revenue', 'growth', 'growth_pct'],
-  evidence: [
-    { category: 'Enterprise Analytics', q2_revenue: '$1.37M', q3_revenue: '$1.80M', growth: '+$428.4K', growth_pct: '+31.2%' },
-    { category: 'Workflow Automation', q2_revenue: '$1.12M', q3_revenue: '$1.31M', growth: '+$189.7K', growth_pct: '+17.0%' },
-    { category: 'Data Connectors', q2_revenue: '$0.84M', q3_revenue: '$0.91M', growth: '+$74.2K', growth_pct: '+8.8%' },
-  ],
-  trace: [
-    { id: 1, title: 'Inspected database schema', detail: 'Found 5 tables and 3 relevant relationships', duration_ms: 43, tool: 'inspect_schema', status: 'complete' },
-    { id: 2, title: 'Compared quarterly revenue', detail: 'Grouped 18,420 order lines by product category', duration_ms: 112, tool: 'execute_sql', status: 'complete' },
-    { id: 3, title: 'Validated regional concentration', detail: 'Cross-checked growth across 4 sales regions', duration_ms: 76, tool: 'analyze_results', status: 'complete' },
-    { id: 4, title: 'Synthesized evidence', detail: 'Linked 3 supporting observations to the answer', duration_ms: 28, tool: 'generate_answer', status: 'complete' },
-  ],
+const initialQuestion = 'Which product category drove the largest revenue growth last quarter?';
+
+const initialResult: Investigation = {
+  question: initialQuestion,
+  answer: 'No investigation has run yet. Submit a business question to generate database-backed evidence and an execution trace.',
+  columns: [],
+  evidence: [],
+  trace: [],
   mode: 'demo',
-  row_limit: 200,
+  row_limit: null,
 };
 
 const suggestions = [
@@ -64,10 +56,10 @@ function formatValue(value: string | number) {
 }
 
 export default function Home() {
-  const [question, setQuestion] = useState(sampleResult.question);
-  const [result, setResult] = useState<Investigation>(sampleResult);
+  const [question, setQuestion] = useState(initialQuestion);
+  const [result, setResult] = useState<Investigation>(initialResult);
   const [busy, setBusy] = useState(false);
-  const [notice, setNotice] = useState('Sample dataset · 18,420 order lines');
+  const [notice, setNotice] = useState('Sample database ready · run an investigation');
 
   const investigate = useCallback(async (nextQuestion: string) => {
     const trimmed = nextQuestion.trim();
@@ -206,7 +198,7 @@ export default function Home() {
           </section>
 
           <section className="evidence-card" id="evidence">
-            <div className="section-title"><div><span className="section-kicker">Supporting data</span><h2>Evidence</h2></div><Badge variant="secondary">Query result</Badge></div>
+            <div className="section-title"><div><span className="section-kicker">Supporting data</span><h2>Evidence</h2></div><Badge variant="secondary">{result.trace.length > 0 ? 'Query result' : 'Awaiting query'}</Badge></div>
             <div className="table-wrap">
               <table>
                 <thead><tr>{result.columns.map((column) => <th key={column}>{column.replaceAll('_', ' ')}</th>)}</tr></thead>

@@ -5,12 +5,20 @@ import Home from './page';
 
 afterEach(cleanup);
 
-/**
- * The sample result is a hardcoded placeholder. None of its figures may ever be
- * presented as the outcome of a real investigation.
- */
+/** Historical placeholder figures that must never appear without database evidence. */
 const FABRICATED_FIGURE = /\$428,400/;
 const FABRICATED_ANSWER = /Enterprise Analytics drove the largest/;
+
+test('first paint does not present fabricated sample data as evidence', () => {
+  render(<Home />);
+
+  expect(screen.queryByText(FABRICATED_ANSWER)).toBeNull();
+  expect(screen.queryByText(FABRICATED_FIGURE)).toBeNull();
+  expect(screen.getByText(/0 evidence rows/)).toBeTruthy();
+  expect(screen.getByText(/No investigation ran/)).toBeTruthy();
+  expect(screen.queryByText(/Evidence checked/)).toBeNull();
+  expect(screen.queryByText(/Safe execution/)).toBeNull();
+});
 
 async function investigateWithFailingBackend(failure: () => Promise<Response>) {
   vi.stubGlobal('fetch', vi.fn(failure));
