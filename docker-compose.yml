@@ -1,0 +1,26 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    environment:
+      TRACEWORK_DATABASE_URL: sqlite:////data/commerce.db
+      TRACEWORK_OPENAI_API_KEY: ${TRACEWORK_OPENAI_API_KEY:-}
+      TRACEWORK_OPENAI_MODEL: ${TRACEWORK_OPENAI_MODEL:-gpt-5-mini}
+      TRACEWORK_CORS_ORIGINS: http://localhost:3000
+    volumes:
+      - tracework-data:/data
+    ports:
+      - "8000:8000"
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+volumes:
+  tracework-data:
