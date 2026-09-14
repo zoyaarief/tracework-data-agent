@@ -31,6 +31,7 @@ def test_demo_investigation_returns_evidence_and_trace(settings) -> None:
     assert response.status_code == 200
     body = response.json()
     assert body["mode"] == "demo"
+    assert body["row_limit"] == settings.max_query_rows
     assert body["evidence"]
     assert body["columns"] == ["region", "avg_order_value", "order_count", "revenue"]
     assert [step["tool"] for step in body["trace"]] == [

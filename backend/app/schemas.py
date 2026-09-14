@@ -33,6 +33,7 @@ class InvestigationResponse(BaseModel):
     evidence: list[dict[str, Any]]
     trace: list[TraceStep]
     mode: Literal["demo", "openai"]
+    row_limit: int = Field(ge=1)
 
 
 class HealthResponse(BaseModel):

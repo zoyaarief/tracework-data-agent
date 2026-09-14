@@ -131,6 +131,7 @@ class DeterministicInvestigator:
             evidence=tools.last_rows,
             trace=tools.trace,
             mode="demo",
+            row_limit=self.database.settings.max_query_rows,
         )
 
 
@@ -167,6 +168,7 @@ class OpenAIInvestigator:
                     evidence=tools.last_rows,
                     trace=tools.trace,
                     mode="openai",
+                    row_limit=self.settings.max_query_rows,
                 )
 
             outputs = []

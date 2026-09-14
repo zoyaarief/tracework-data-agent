@@ -28,6 +28,7 @@ type Investigation = {
   columns: string[];
   trace: TraceStep[];
   mode: string;
+  row_limit: number | null;
 };
 
 const sampleResult: Investigation = {
@@ -47,6 +48,7 @@ const sampleResult: Investigation = {
     { id: 4, title: 'Synthesized evidence', detail: 'Linked 3 supporting observations to the answer', duration_ms: 28, tool: 'generate_answer', status: 'complete' },
   ],
   mode: 'demo',
+  row_limit: 200,
 };
 
 const suggestions = [
@@ -91,6 +93,7 @@ export default function Home() {
         evidence: [],
         trace: [],
         mode: 'demo',
+        row_limit: null,
       });
       setNotice('Investigation could not be completed · no evidence retrieved');
     } finally {
@@ -230,7 +233,7 @@ export default function Home() {
               </li>
             ))}
           </ol>
-          {result.trace.length > 0 && <div className="trace-footer"><ShieldCheck /><span><strong>Safe execution</strong>All queries validated and limited to 200 rows.</span></div>}
+          {result.trace.length > 0 && typeof result.row_limit === 'number' && <div className="trace-footer"><ShieldCheck /><span><strong>Safe execution</strong>All queries validated and limited to {result.row_limit} rows.</span></div>}
         </aside>
       </div>
     </main>

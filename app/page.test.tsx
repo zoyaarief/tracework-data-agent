@@ -75,6 +75,7 @@ test('a successful investigation still reports the completed trace', async () =>
       { id: 1, title: 'Executed read-only query', detail: 'Returned 4 rows', duration_ms: 8, tool: 'execute_sql', status: 'complete' },
     ],
     mode: 'demo',
+    row_limit: 37,
   };
   vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(new Response(JSON.stringify(payload), { status: 200 }))));
   render(<Home />);
@@ -86,5 +87,7 @@ test('a successful investigation still reports the completed trace', async () =>
     expect(screen.getByText(/Deterministic demo agent/)).toBeTruthy();
     expect(screen.getByText(/Safe execution/)).toBeTruthy();
     expect(screen.getByText(/Evidence checked/)).toBeTruthy();
+    expect(screen.getByText(/limited to 37 rows/)).toBeTruthy();
+    expect(screen.queryByText(/limited to 200 rows/)).toBeNull();
   });
 });
