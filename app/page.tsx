@@ -215,7 +215,10 @@ export default function Home() {
 
         <aside className="trace-panel" id="trace">
           <div className="trace-heading"><div><span className="section-kicker">Agent activity</span><h2>Execution trace</h2></div><Badge variant="outline">{result.trace.length} steps</Badge></div>
-          <div className="trace-summary"><Play fill="currentColor" /><div><strong>Investigation complete</strong><span>{result.mode === 'openai' ? 'Live agent' : 'Deterministic demo agent'}</span></div></div>
+          <div className="trace-summary"><Play fill="currentColor" /><div>
+            <strong>{result.trace.length > 0 ? 'Investigation complete' : 'No investigation ran'}</strong>
+            <span>{result.trace.length === 0 ? 'No tool calls were recorded' : result.mode === 'openai' ? 'Live agent' : 'Deterministic demo agent'}</span>
+          </div></div>
           <ol className="trace-list">
             {result.trace.map((step, index) => (
               <li key={step.id}>
@@ -227,7 +230,7 @@ export default function Home() {
               </li>
             ))}
           </ol>
-          <div className="trace-footer"><ShieldCheck /><span><strong>Safe execution</strong>All queries validated and limited to 200 rows.</span></div>
+          {result.trace.length > 0 && <div className="trace-footer"><ShieldCheck /><span><strong>Safe execution</strong>All queries validated and limited to 200 rows.</span></div>}
         </aside>
       </div>
     </main>
