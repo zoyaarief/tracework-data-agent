@@ -55,8 +55,13 @@ class DeterministicInvestigator:
                 else "There are no completed orders to compare by region."
             )
         elif "churn" in lowered:
-            query = """
-                SELECT strftime('%Y-%m', churned_at) AS month, COUNT(*) AS churned_customers
+            month = (
+                "to_char(churned_at, 'YYYY-MM')"
+                if self.database.dialect == "postgres"
+                else "strftime('%Y-%m', churned_at)"
+            )
+            query = f"""
+                SELECT {month} AS month, COUNT(*) AS churned_customers
                 FROM customers WHERE churned_at IS NOT NULL
                 GROUP BY month ORDER BY month
             """
@@ -101,12 +106,14 @@ class DeterministicInvestigator:
             result = tools.execute_sql({"sql": query})
             tools.analyze_results()
             leader = result["rows"][0] if result["rows"] else None
-            answer = (
-                f"{leader['category']} drove the largest Q2-to-Q3 revenue increase: "
-                f"${leader['growth']:,.2f} ({leader['growth_pct']:.1f}%), from ${leader['q2_revenue']:,.2f} to ${leader['q3_revenue']:,.2f}."
-                if leader
-                else "There is not enough order data to compare quarterly category revenue."
-            )
+            if leader:
+                change = "no Q2 baseline" if leader["growth_pct"] is None else f"{leader['growth_pct']:.1f}%"
+                answer = (
+                    f"{leader['category']} drove the largest Q2-to-Q3 revenue increase: "
+                    f"${leader['growth']:,.2f} ({change}), from ${leader['q2_revenue']:,.2f} to ${leader['q3_revenue']:,.2f}."
+                )
+            else:
+                answer = "There is not enough order data to compare quarterly category revenue."
 
         tools.trace.append(
             TraceStep(

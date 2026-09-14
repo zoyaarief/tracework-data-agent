@@ -83,8 +83,16 @@ export default function Home() {
       setResult(payload);
       setNotice(`${payload.mode === 'openai' ? 'OpenAI' : 'Demo'} mode · investigation complete`);
     } catch {
-      setResult({ ...sampleResult, question: trimmed });
-      setNotice('Backend offline · showing representative demo evidence');
+      setResult({
+        question: trimmed,
+        answer:
+          'This investigation could not be completed, so there is no evidence to show. Check that the backend is reachable and try again.',
+        columns: [],
+        evidence: [],
+        trace: [],
+        mode: 'demo',
+      });
+      setNotice('Investigation could not be completed · no evidence retrieved');
     } finally {
       setBusy(false);
     }
@@ -188,7 +196,7 @@ export default function Home() {
           <section className="answer-card" aria-live="polite">
             <div className="answer-header">
               <div><span className="section-kicker">Conclusion</span><h2>{result.question}</h2></div>
-              <Badge className="confidence"><Check /> Evidence checked</Badge>
+              {result.evidence.length > 0 && <Badge className="confidence"><Check /> Evidence checked</Badge>}
             </div>
             <p className="answer-copy">{result.answer}</p>
             <div className="answer-meta"><span><Database /> {result.evidence.length} evidence rows</span><span><Clock3 /> {result.trace.reduce((sum, step) => sum + step.duration_ms, 0)} ms tool time</span></div>

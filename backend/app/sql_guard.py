@@ -73,6 +73,7 @@ def validate_readonly_sql(sql: str, *, dialect: str, max_rows: int) -> Validated
     requested_limit = statement.args.get("limit")
     if requested_limit is None:
         statement = statement.limit(max_rows)
+        effective_limit = max_rows
     else:
         limit_expression = requested_limit.expression
         if not isinstance(limit_expression, exp.Literal) or not limit_expression.is_int:
@@ -82,5 +83,6 @@ def validate_readonly_sql(sql: str, *, dialect: str, max_rows: int) -> Validated
             raise UnsafeQueryError("LIMIT must be a positive integer")
         if limit > max_rows:
             statement.set("limit", exp.Limit(expression=exp.Literal.number(max_rows)))
+        effective_limit = min(limit, max_rows)
 
-    return ValidatedQuery(sql=statement.sql(dialect=dialect), row_limit=max_rows)
+    return ValidatedQuery(sql=statement.sql(dialect=dialect), row_limit=effective_limit)

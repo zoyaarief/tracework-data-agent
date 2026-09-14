@@ -4,6 +4,7 @@ import json
 import statistics
 import time
 from collections.abc import Callable
+from decimal import Decimal
 from typing import Any
 
 from .database import Database
@@ -121,7 +122,11 @@ class AgentTools:
         profile: dict[str, Any] = {"row_count": len(self.last_rows), "columns": {}}
         for column in self.last_columns:
             values = [row[column] for row in self.last_rows if row.get(column) is not None]
-            numeric = [float(value) for value in values if isinstance(value, (int, float))]
+            numeric = [
+                float(value)
+                for value in values
+                if isinstance(value, (int, float, Decimal)) and not isinstance(value, bool)
+            ]
             details: dict[str, Any] = {"non_null": len(values), "null": len(self.last_rows) - len(values)}
             if numeric:
                 details.update({"min": min(numeric), "max": max(numeric), "mean": statistics.fmean(numeric)})

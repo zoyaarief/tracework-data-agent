@@ -43,13 +43,15 @@ class Database:
                     connection.exec_driver_sql("PRAGMA query_only = ON")
                 elif self.engine.dialect.name == "postgresql":
                     connection.execute(text("SET TRANSACTION READ ONLY"))
+                    # SET takes a literal, not a bind parameter; int() keeps it injection-safe.
                     connection.execute(
-                        text("SET LOCAL statement_timeout = :timeout"),
-                        {"timeout": self.settings.query_timeout_seconds * 1000},
+                        text(f"SET LOCAL statement_timeout = {int(self.settings.query_timeout_seconds) * 1000}")
                     )
                 yield connection
             finally:
                 transaction.rollback()
+                if self.engine.dialect.name == "sqlite":
+                    connection.exec_driver_sql("PRAGMA query_only = OFF")
 
     def inspect_schema(self) -> dict[str, Any]:
         inspector = inspect(self.engine)

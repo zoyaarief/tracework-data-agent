@@ -5,6 +5,22 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: tracework
+          POSTGRES_PASSWORD: tracework
+          POSTGRES_DB: tracework
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U tracework"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      TRACEWORK_TEST_POSTGRES_URL: postgresql+psycopg://tracework:tracework@localhost:5432/tracework
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -18,5 +34,6 @@ jobs:
       - run: npm ci
       - run: pytest
       - run: ruff check backend
+      - run: npm test
       - run: npm run lint
       - run: npm run build
