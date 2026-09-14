@@ -52,3 +52,39 @@ test('a failed investigation reports the failure and shows no evidence rows', as
     expect(screen.queryByText(/Evidence checked/)).toBeNull();
   });
 });
+
+test('a failed investigation does not claim the trace completed or that queries were guarded', async () => {
+  await investigateWithFailingBackend(() => Promise.reject(new TypeError('network down')));
+
+  await waitFor(() => {
+    expect(screen.getByText(/0 steps/)).toBeTruthy();
+    expect(screen.queryByText(/Investigation complete/)).toBeNull();
+    expect(screen.queryByText(/Deterministic demo agent/)).toBeNull();
+    // No queries ran, so nothing was validated or row-limited.
+    expect(screen.queryByText(/Safe execution/)).toBeNull();
+  });
+});
+
+test('a successful investigation still reports the completed trace', async () => {
+  const payload = {
+    question: 'Which region has the highest average order value?',
+    answer: 'Southeast leads at $1,579.18.',
+    columns: ['region'],
+    evidence: [{ region: 'Southeast' }],
+    trace: [
+      { id: 1, title: 'Executed read-only query', detail: 'Returned 4 rows', duration_ms: 8, tool: 'execute_sql', status: 'complete' },
+    ],
+    mode: 'demo',
+  };
+  vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(new Response(JSON.stringify(payload), { status: 200 }))));
+  render(<Home />);
+
+  screen.getByRole('button', { name: /Which region has the highest/ }).click();
+
+  await waitFor(() => {
+    expect(screen.getByText(/Investigation complete/)).toBeTruthy();
+    expect(screen.getByText(/Deterministic demo agent/)).toBeTruthy();
+    expect(screen.getByText(/Safe execution/)).toBeTruthy();
+    expect(screen.getByText(/Evidence checked/)).toBeTruthy();
+  });
+});
