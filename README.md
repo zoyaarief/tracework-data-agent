@@ -1,42 +1,76 @@
-# Tracework — Data Investigation AI Agent
+# Tracework: AI Data Investigation Agent
 
-Tracework is a portfolio-grade data investigation agent. It receives a natural-language business question, inspects a relational schema, executes model-selected read-only SQL, analyzes intermediate results, and returns a concise answer with evidence and a traceable execution log.
+**Ask a business question in plain English. Tracework inspects the schema, runs read-only
+SQL, and answers with the evidence rows and an execution trace behind it.**
 
-The app runs immediately in deterministic demo mode against a generated SQLite commerce dataset. Add an OpenAI API key to enable the iterative Responses API tool-calling loop. PostgreSQL is supported through SQLAlchemy for live agent mode.
+[![CI](https://github.com/zoyaarief/tracework-data-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/zoyaarief/tracework-data-agent/actions/workflows/ci.yml)
+![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)
+![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
+![OpenAI](https://img.shields.io/badge/OpenAI-Responses%20API-412991?logo=openai&logoColor=white)
+![License](https://img.shields.io/badge/license-MIT-blue)
 
-![Tracework social preview](public/og.png)
+![Tracework: ask the data, follow the evidence](public/og.png)
 
-## Architecture
+Tracework is a full-stack agent for questions such as "Which region has the highest average
+order value?" An LLM calls three tools in a bounded loop: inspect the schema, execute SQL, and
+profile the result. Every query passes an SQL AST guard and runs inside a read-only
+transaction. The response includes the answer, the rows that support it, and a trace of each
+step with its row count and timing.
 
-```text
-React investigation console
-          │ POST /api/investigations
-          ▼
-FastAPI service ──► agent selector
-                       ├── demo investigator (no key)
-                       └── OpenAI Responses agent
-                                  │
-                      inspect_schema / execute_sql / analyze_results
-                                  │
-                                  ▼
-                  SQL AST guard + read-only transaction
-                                  │
-                           SQLite / PostgreSQL
+It runs immediately with no API key: a deterministic demo investigator answers against a
+generated SQLite commerce dataset. Adding an OpenAI key switches to the live Responses API
+agent, which also works against PostgreSQL.
+
+## Highlights
+
+- **Tool-calling agent loop** on the OpenAI Responses API: strict function schemas,
+  `parallel_tool_calls=False`, a step limit, `store=False`, and a stateless loop that carries
+  prior output items and `function_call_output`s between calls.
+- **Answers must rest on evidence.** The agent is rejected if it answers without running a
+  query, and the UI shows the exact rows the answer rests on.
+- **Defense-in-depth SQL safety**: `sqlglot` AST validation (one `SELECT` only, no
+  writes/DDL/transactions), a denylist of dangerous functions, literal-only `LIMIT`s capped
+  at a configured maximum, and read-only execution (`PRAGMA query_only` on SQLite,
+  `SET TRANSACTION READ ONLY` plus a statement timeout on PostgreSQL).
+- **Transparent traces, not hidden reasoning.** The trace records tool names, row counts,
+  timings, and safe observations, not the model's chain of thought.
+- **Regression tests from a review pass**: a round of review fixes (connection-pool poisoning
+  by read-only mode, decimal and boolean profiling, reporting the effective row limit, and a
+  UI that never shows sample figures as evidence after a failed run) each shipped with tests.
+- **CI on every push**: pytest (including a real PostgreSQL 16 service), Ruff, Vitest, Oxlint,
+  and a production build.
+
+## How it works
+
+```mermaid
+flowchart LR
+    UI["React investigation console"] -->|"POST /api/investigations"| API["FastAPI service"]
+    API --> SEL{"OpenAI key<br/>configured?"}
+    SEL -->|no| DEMO["Deterministic demo investigator"]
+    SEL -->|yes| AGENT["OpenAI Responses agent<br/>(bounded tool loop)"]
+    DEMO --> TOOLS
+    AGENT --> TOOLS["Tools<br/>inspect_schema · execute_sql · analyze_results"]
+    TOOLS --> GUARD["SQL AST guard<br/>+ read-only transaction"]
+    GUARD --> DB[("SQLite / PostgreSQL")]
+    API -->|"answer · evidence rows · trace"| UI
 ```
 
-The trace exposes operational facts—tool names, row counts, timing, and safe observations—not hidden chain-of-thought.
+The demo dataset is generated on first start: 400 customers across regions and segments,
+about six months of orders and order items, products, and refunds. In demo mode the
+investigator recognizes four kinds of question (regional average order value, churn by
+month, refund outliers by product, and quarter-over-quarter category growth) and runs the
+same tools and guard as the live agent.
 
-## What is included
+## Tech stack
 
-- Iterative OpenAI Responses API function-calling loop with bounded steps
-- Deterministic offline agent for an instantly runnable demo
-- Schema inspection, safe SQL execution, result profiling, and evidence-backed answers
-- SQL AST validation, single-statement enforcement, automatic row limits, forbidden-function checks, and read-only transactions
-- SQLite sample data generator with process-safe initialization
-- PostgreSQL connection support
-- FastAPI endpoints, Pydantic validation, CORS configuration, and generic error boundaries
-- Responsive React console with answer, evidence table, and execution trace
-- Docker, GitHub Actions, Ruff, Pytest, Oxlint, and production builds
+| Layer | Technology |
+|---|---|
+| Agent and API | Python 3.11+, FastAPI, Pydantic Settings, OpenAI Responses API |
+| Data | SQLAlchemy 2, `sqlglot`, SQLite, PostgreSQL (`psycopg`) |
+| Frontend | React 19, TypeScript, Vite ([vinext](https://www.npmjs.com/package/vinext)), Tailwind CSS 4, shadcn/ui |
+| Quality | pytest, Ruff, Vitest, Testing Library, Oxlint, GitHub Actions |
+| Packaging | Dockerfiles for the API and web app |
 
 ## Quick start
 
@@ -50,95 +84,101 @@ pip install -e ".[dev]"
 npm ci
 ```
 
-Start the API:
+Start the API, then the web app in a second terminal:
 
 ```bash
 uvicorn backend.app.main:app --reload --port 8000
-```
-
-In another terminal, start the web app:
-
-```bash
 npm run dev
 ```
 
 Open `http://localhost:3000`. FastAPI's interactive docs are at `http://localhost:8000/docs`.
+The first API start creates `backend/data/commerce.db`.
 
-The first API startup creates `backend/data/commerce.db` with 400 customers, six months of orders, order items, products, and refunds.
+### Enable the OpenAI agent
 
-## Enable the OpenAI agent
-
-Set the key only on the server:
+Set the key on the server only:
 
 ```bash
 TRACEWORK_OPENAI_API_KEY=your_key_here
 TRACEWORK_OPENAI_MODEL=gpt-5-mini
 ```
 
-Do not prefix the API key with `NEXT_PUBLIC_`; that would expose it to browser code. The implementation follows the official Responses API model of providing custom function tools and feeding each `function_call_output` into the next response. See the [official OpenAI Responses API reference](https://developers.openai.com/api/reference/cli/resources/responses/methods/create).
+Never prefix the key with `NEXT_PUBLIC_`, which would expose it to browser code. The loop
+follows the Responses API pattern of custom function tools, feeding each
+`function_call_output` into the next request. See the
+[OpenAI Responses API reference](https://developers.openai.com/api/reference/cli/resources/responses/methods/create).
 
-## Use PostgreSQL
+### Connect PostgreSQL
 
-Create a least-privilege login with `SELECT` access only, then configure:
+Create a least-privilege login with `SELECT` access only, then set:
 
 ```bash
 TRACEWORK_DATABASE_URL=postgresql+psycopg://tracework_reader:password@localhost/analytics
 ```
 
-The demo seed is SQLite-only. Without an API key, the deterministic churn query is also SQLite-specific; use live agent mode for a PostgreSQL schema.
+The demo seed is SQLite-only, and without an API key the deterministic questions are written
+for the demo schema. Use live agent mode for your own PostgreSQL schema.
 
 ## API
 
 | Method | Path | Purpose |
-| --- | --- | --- |
+|---|---|---|
 | `GET` | `/health` | Database and agent-mode status |
-| `GET` | `/api/schema` | Inspect visible tables and relationships |
+| `GET` | `/api/schema` | Visible tables, columns, and relationships |
 | `POST` | `/api/investigations` | Run a question through the agent |
-
-Example:
 
 ```bash
 curl -X POST http://localhost:8000/api/investigations \
   -H 'Content-Type: application/json' \
-  -d '{"question":"Which region has the highest average order value?"}'
+  -d '{"question": "Which region has the highest average order value?"}'
 ```
 
-## Checks
+The response includes `answer`, `columns`, `evidence` (the result rows), `trace` (one entry
+per step), `mode` (`demo` or `openai`), and the effective `row_limit`.
+
+## Testing
 
 ```bash
-pytest
+pytest               # API, SQL guard, agent loop, regressions, PostgreSQL dialect
 ruff check backend
+npm test             # Vitest + Testing Library UI tests
 npm run lint
 npm run build
 ```
 
-CI runs all four on every push and pull request.
+CI runs all of these on every push and pull request. The PostgreSQL tests run when
+`TRACEWORK_TEST_POSTGRES_URL` is set, as it is in CI.
 
-## Security boundaries
+## Security model
 
-The application rejects non-`SELECT` statements, multiple statements, dangerous known functions, dynamic or non-positive limits, and queries above the configured row cap. SQLite uses `PRAGMA query_only`; PostgreSQL uses a read-only transaction and statement timeout.
+The application rejects anything other than a single `SELECT`, multiple statements, known
+dangerous functions, dynamic or non-positive `LIMIT`s, and queries above the row cap.
+SQLite runs with `PRAGMA query_only`, and PostgreSQL runs inside a read-only transaction with
+a statement timeout.
 
-This is defense in depth, not a SQL sandbox. Production deployments must also use a database role limited to approved schemas/tables, restrict network access, add authentication and tenant authorization, audit requests, and enforce infrastructure timeouts. A function denylist cannot prove arbitrary user-defined functions are side-effect free.
+This is defense in depth, not a SQL sandbox. A production deployment would also need a
+database role limited to approved schemas and tables, network restrictions, authentication
+and tenant authorization, request auditing, and infrastructure timeouts. A function denylist
+cannot prove that arbitrary user-defined functions are side-effect free.
 
-## Deliberate limitations
+## Limitations
 
-- No user authentication, tenant isolation, schema allowlist, or persisted investigation history
-- No arbitrary browser-supplied database URLs
-- No guarantee that available data can answer every question
-- Demo mode recognizes only the included portfolio questions; unsupported questions fall back to quarterly category growth
-- SQLite does not yet have a true execution interrupt for pathological read queries
-- The hosted frontend demonstrates the interface when no separately deployed API is reachable
+- No authentication, tenant isolation, schema allowlist, or saved investigation history.
+- No browser-supplied database URLs, by design.
+- The data may not be able to answer every question. Demo mode recognizes only the four
+  included question types and falls back to quarterly category growth.
+- SQLite has no true execution interrupt for pathological read queries.
 
 ## Repository layout
 
 ```text
-app/                 React investigation console
-components/ui/       shadcn interface primitives
-backend/app/         FastAPI, agent loop, tools, guard, and data seed
-backend/tests/       API, SQL safety, concurrency, and agent-loop tests
-.github/workflows/   Continuous integration
+app/                 React investigation console (+ UI tests)
+components/ui/       shadcn/ui primitives
+backend/app/         FastAPI app, agent loop, tools, SQL guard, database, demo seed
+backend/tests/       API, SQL safety, PostgreSQL, concurrency, and agent-loop tests
+.github/workflows/   CI
 ```
 
 ## License
 
-MIT
+[MIT](LICENSE)
